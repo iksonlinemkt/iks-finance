@@ -4,7 +4,7 @@ import { fmtNum, calcFinance, parseNum } from '../utils/calc'
 import { StatusBadge } from '../utils/statusConfig.jsx'
 import { BRANCHES, SALES_LIST, FINANCE_LIST, MODEL_LIST, COLOR_LIST, INSURANCE_LIST, CAMPAIGN_LIST, OCCUPATION_LIST } from '../utils/dropdownData'
 import SearchableSelect from '../components/SearchableSelect'
-import { Search, RefreshCw, Eye, Pencil, RotateCcw, X, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { Search, RefreshCw, Eye, Pencil, RotateCcw, X, History, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 
 const MANAGE_STATUSES = ['รับใบคำขอ','ส่ง Finance','ขอเอกสารเพิ่มเติม','รอผล','ปรับเงื่อนไข','อนุมัติ','อนุมัติแบบปรับเงื่อนไข','ไม่อนุมัติ']
 
@@ -160,6 +160,73 @@ export default function CaseList() {
     fetchCases()
   }
 
+  const handleExportCSV = () => {
+    if (!cases.length) return
+    const headers = [
+      'case_id','submit_date','branch','sales_code','sales_name','fin_code','fin_name',
+      'customer_name','customer_phone','model_no','selling_name','car_color',
+      'car_price','equipment','sub_down_add','discount_crp','total_car_price',
+      'down_real','discount_down','discount_sub_down','total_down','finance_amount',
+      'interest','interest_discount','real_interest','term','installment',
+      'insurance','campaign','occupation','status','round','edit_count','note','created_at'
+    ]
+    const rows = cases.map(c => headers.map(h => {
+      const v = c[h]
+      if (v === null || v === undefined) return ''
+      if (typeof v === 'string' && v.includes(',')) return '"' + v + '"'
+      return v
+    }).join(','))
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'iks-finance-' + new Date().toISOString().slice(0,10) + '.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportCSV = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const text = await file.text()
+    const lines = text.split('\n').filter(l => l.trim())
+    if (lines.length < 2) return
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g,''))
+    const rows = lines.slice(1).map(line => {
+      const vals = line.split(',')
+      const obj = {}
+      headers.forEach((h, i) => { obj[h] = (vals[i]||'').replace(/"/g,'').trim() })
+      return obj
+    })
+    const confirmed = window.confirm('พบข้อมูล ' + rows.length + ' แถว ต้องการนำเข้าไหม?')
+    if (!confirmed) { e.target.value = ''; return }
+    setSaving(true)
+    let success = 0, fail = 0
+    for (const row of rows) {
+      if (!row.case_id) continue
+      const { error } = await supabase.from('finance_cases').upsert({
+        case_id: row.case_id, submit_date: row.submit_date || null,
+        branch: row.branch || '', sales_code: row.sales_code || '', sales_name: row.sales_name || '',
+        fin_code: row.fin_code || '', fin_name: row.fin_name || '',
+        customer_name: row.customer_name || '', customer_phone: row.customer_phone || '',
+        model_no: row.model_no || '', selling_name: row.selling_name || '', car_color: row.car_color || '',
+        car_price: parseFloat(row.car_price)||0, total_car_price: parseFloat(row.total_car_price)||0,
+        down_real: parseFloat(row.down_real)||0, total_down: parseFloat(row.total_down)||0,
+        finance_amount: parseFloat(row.finance_amount)||0, interest: parseFloat(row.interest)||0,
+        real_interest: parseFloat(row.real_interest)||0, term: parseInt(row.term)||0,
+        installment: parseFloat(row.installment)||0, insurance: row.insurance||'',
+        campaign: row.campaign||'', occupation: row.occupation||'',
+        status: row.status||'รับใบคำขอ', round: parseInt(row.round)||1, note: row.note||'',
+      }, { onConflict: 'case_id' })
+      if (error) fail++; else success++
+    }
+    setSaving(false)
+    alert('นำเข้าสำเร็จ ' + success + ' แถว, ผิดพลาด ' + fail + ' แถว')
+    e.target.value = ''
+    fetchCases()
+  }
+
   const fmt = (n) => n ? Number(n).toLocaleString('th-TH') + ' บาท' : '-'
   const setEF = (k, v) => setEditForm(p => ({ ...p, [k]: v }))
 
@@ -198,6 +265,11 @@ export default function CaseList() {
           </div>
           <button onClick={() => setFilters({ status:'', branch:'', sales:'', keyword:'' })} className="btn-secondary text-sm h-9"><X size={14} /> ล้าง</button>
           <button onClick={fetchCases} className="btn-primary text-sm h-9"><RefreshCw size={14} /> รีเฟรช</button>
+          <button onClick={handleExportCSV} className="btn-secondary text-sm h-9"><Download size={14} /> Export CSV</button>
+          <label className="btn-secondary text-sm h-9 cursor-pointer">
+            <Upload size={14} /> Import CSV
+            <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+          </label>
         </div>
         <div className="mt-2 text-xs text-gray-400">พบ {filtered.length} รายการ จากทั้งหมด {cases.length}</div>
       </div>
