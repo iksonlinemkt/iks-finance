@@ -247,52 +247,109 @@ export default function CaseList() {
 
       {/* Resubmit Modal */}
       {resubmitCase && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between p-5 border-b">
-              <div>
-                <h3 className="font-display font-bold">🔄 ส่ง Finance ใหม่</h3>
-                <p className="text-xs text-gray-400 mt-0.5">{resubmitCase.case_id} — รอบที่ {(resubmitCase.round || 1) + 1}</p>
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="flex items-center justify-between p-5 border-b">
+        <div>
+          <h3 className="font-display font-bold text-lg">🔄 ส่ง Finance ใหม่</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {resubmitCase.case_id} — รอบที่ {(resubmitCase.round || 1) + 1}
+          </p>
+        </div>
+        <button onClick={() => setResubmitCase(null)}><X size={20} /></button>
+      </div>
+
+      <div className="p-5 grid grid-cols-2 gap-6">
+        {/* ซ้าย: ข้อมูลเดิม */}
+        <div>
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            ข้อมูลเดิม (รอบที่ {resubmitCase.round || 1})
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2.5 text-sm">
+            {[
+              ['ลูกค้า', resubmitCase.customer_name],
+              ['รุ่นรถ', resubmitCase.selling_name || resubmitCase.model_no],
+              ['ราคารถรวม', resubmitCase.total_car_price ? Number(resubmitCase.total_car_price).toLocaleString('th-TH') + ' บาท' : '-'],
+              ['เงินดาวน์จริง', resubmitCase.down_real ? Number(resubmitCase.down_real).toLocaleString('th-TH') + ' บาท' : '-'],
+              ['รวมเงินดาวน์', resubmitCase.total_down ? Number(resubmitCase.total_down).toLocaleString('th-TH') + ' บาท' : '-'],
+              ['ยอดจัด', resubmitCase.finance_amount ? Number(resubmitCase.finance_amount).toLocaleString('th-TH') + ' บาท' : '-'],
+              ['ไฟแนนซ์เดิม', `${resubmitCase.fin_code || '-'}`],
+              ['ดอกเบี้ย', resubmitCase.real_interest ? resubmitCase.real_interest.toFixed(2) + '%' : '-'],
+              ['จำนวนงวด', resubmitCase.term ? resubmitCase.term + ' งวด' : '-'],
+              ['ค่างวด', resubmitCase.installment ? Number(resubmitCase.installment).toLocaleString('th-TH') + ' บาท' : '-'],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between">
+                <span className="text-gray-500">{k}</span>
+                <span className="font-medium text-gray-800">{v || '-'}</span>
               </div>
-              <button onClick={() => setResubmitCase(null)}><X size={20} /></button>
+            ))}
+          </div>
+        </div>
+
+        {/* ขวา: เงื่อนไขใหม่ */}
+        <div>
+          <div className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-3">
+            เงื่อนไขใหม่ (รอบที่ {(resubmitCase.round || 1) + 1})
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="form-label">ไฟแนนซ์ใหม่ <span className="text-red-500">*</span></label>
+              <select
+                value={resubmitForm.finCode}
+                onChange={e => {
+                  const opt = FINANCE_LIST.find(f => f.code === e.target.value)
+                  setResubmitForm(p => ({ ...p, finCode: e.target.value, finName: opt?.name || '' }))
+                }}
+                className="form-select"
+              >
+                <option value="">เลือกไฟแนนซ์...</option>
+                import { BRANCHES, SALES_LIST, FINANCE_LIST } from '../utils/dropdownData'
+                {FINANCE_LIST.map(f => (
+                  <option key={f.code} value={f.code}>{f.code} — {f.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="p-5 space-y-3">
-              <div>
-                <label className="form-label">ไฟแนนซ์ใหม่ <span className="text-red-500">*</span></label>
-                <input value={resubmitForm.finCode} onChange={e => setResubmitForm(p => ({ ...p, finCode: e.target.value }))} className="form-input" placeholder="รหัสไฟแนนซ์" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="form-label">เงินดาวน์</label>
-                  <input type="number" value={resubmitForm.downReal} onChange={e => setResubmitForm(p => ({ ...p, downReal: e.target.value }))} className="form-input" placeholder="0" />
-                </div>
-                <div>
-                  <label className="form-label">ดอกเบี้ย (%)</label>
-                  <input type="number" step="0.01" value={resubmitForm.interest} onChange={e => setResubmitForm(p => ({ ...p, interest: e.target.value }))} className="form-input" placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="form-label">จำนวนงวด</label>
-                  <input type="number" value={resubmitForm.term} onChange={e => setResubmitForm(p => ({ ...p, term: e.target.value }))} className="form-input" placeholder="60" />
-                </div>
-                <div>
-                  <label className="form-label">ค่างวด</label>
-                  <input type="number" value={resubmitForm.installment} onChange={e => setResubmitForm(p => ({ ...p, installment: e.target.value }))} className="form-input" placeholder="0" />
-                </div>
-              </div>
-              <div>
-                <label className="form-label">หมายเหตุ</label>
-                <textarea rows={2} value={resubmitForm.note} onChange={e => setResubmitForm(p => ({ ...p, note: e.target.value }))} className="form-input resize-none" placeholder="เหตุผลการส่งใหม่..." />
-              </div>
+            <div>
+              <label className="form-label">เงินดาวน์จริง</label>
+              <input type="number" value={resubmitForm.downReal}
+                onChange={e => setResubmitForm(p => ({ ...p, downReal: e.target.value }))}
+                className="form-input" placeholder="0" />
             </div>
-            <div className="flex gap-3 p-5 border-t justify-end">
-              <button onClick={() => setResubmitCase(null)} className="btn-secondary">ยกเลิก</button>
-              <button onClick={handleResubmit} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2">
-                <RotateCcw size={15} /> {saving ? 'กำลังส่ง...' : 'ส่ง Finance ใหม่'}
-              </button>
+            <div>
+              <label className="form-label">ดอกเบี้ย (%)</label>
+              <input type="number" step="0.01" value={resubmitForm.interest}
+                onChange={e => setResubmitForm(p => ({ ...p, interest: e.target.value }))}
+                className="form-input" placeholder="0.00" />
+            </div>
+            <div>
+              <label className="form-label">จำนวนงวด</label>
+              <input type="number" value={resubmitForm.term}
+                onChange={e => setResubmitForm(p => ({ ...p, term: e.target.value }))}
+                className="form-input" placeholder="60" />
+            </div>
+            <div>
+              <label className="form-label">ค่างวด</label>
+              <input type="number" value={resubmitForm.installment}
+                onChange={e => setResubmitForm(p => ({ ...p, installment: e.target.value }))}
+                className="form-input" placeholder="0" />
+            </div>
+            <div>
+              <label className="form-label">หมายเหตุ</label>
+              <textarea rows={2} value={resubmitForm.note}
+                onChange={e => setResubmitForm(p => ({ ...p, note: e.target.value }))}
+                className="form-input resize-none" placeholder="เหตุผลการส่งใหม่..." />
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      <div className="flex gap-3 p-5 border-t justify-end">
+        <button onClick={() => setResubmitCase(null)} className="btn-secondary">ยกเลิก</button>
+        <button onClick={handleResubmit} disabled={saving}
+          className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-5 py-2 rounded-lg flex items-center gap-2 transition-colors">
+          <RotateCcw size={15} /> {saving ? 'กำลังส่ง...' : 'ส่ง Finance ใหม่'}
+        </button>
+      </div>
     </div>
-  )
-}
+  </div>
+)}
