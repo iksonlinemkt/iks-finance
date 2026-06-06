@@ -352,4 +352,5 @@ export default function CaseList() {
       </div>
     </div>
   </div>
-)}
+  </div>
+  )}
