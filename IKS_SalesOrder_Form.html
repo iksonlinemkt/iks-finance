@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IKS - ใบยืนยันข้อตกลงการขาย / ใบคำขอสินเชื่อ</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:#0f2a4a;--navy-mid:#1a3d6b;--navy-light:#2a5298;
+  --blue:#1565C0;--blue-bright:#1976D2;
+  --sky:#e8f0fe;--sky-mid:#c5d9f7;
+  --white:#ffffff;--gray-100:#f1f3f5;--gray-200:#e9ecef;
+  --gray-300:#dee2e6;--gray-600:#6c757d;--gray-700:#495057;--gray-800:#343a40;
+  --green:#1b7a3e;--green-bg:#e6f4ec;
+  --red:#b91c1c;--red-bg:#fef2f2;
+  --amber:#92400e;--amber-bg:#fffbeb;
+  --border:#d0d9e8;--shadow:0 1px 4px rgba(15,42,74,.10);
+  --shadow-lg:0 4px 16px rgba(15,42,74,.13);--radius:8px;
+  --font:'Sarabun','Segoe UI',sans-serif;
+}
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+body{font-family:var(--font);background:#eef2f8;color:var(--gray-800);font-size:14px;line-height:1.5;min-height:100vh;}
+
+/* LOADING OVERLAY */
+#loading-overlay{position:fixed;inset:0;background:rgba(15,42,74,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+#loading-overlay .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.2);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;}
+#loading-overlay p{color:white;font-size:15px;font-weight:600;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* HEADER */
+.app-header{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.header-left{display:flex;align-items:center;gap:14px;}
+.header-logo{width:34px;height:34px;background:white;border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.header-title{color:white;font-size:15px;font-weight:700;}
+.header-subtitle{color:rgba(255,255,255,.65);font-size:11px;}
+.header-actions{display:flex;gap:8px;}
+
+/* STATUS BAR */
+.status-bar{background:var(--navy-light);padding:6px 24px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,.1);}
+.status-pill{padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+.status-DRAFT{background:rgba(255,255,255,.15);color:white;}
+.status-PENDING_APPROVAL{background:#d97706;color:white;}
+.status-APPROVED{background:#16a34a;color:white;}
+.status-RETURNED{background:#dc2626;color:white;}
+.doc-number{color:rgba(255,255,255,.8);font-size:12px;}
+.doc-number span{color:white;font-weight:700;}
+
+/* FORM */
+.form-container{max-width:1280px;margin:0 auto;padding:20px 20px 90px;}
+
+/* SUMMARY PANEL */
+.summary-panel{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);border-radius:var(--radius);padding:20px;color:white;margin-bottom:16px;}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:12px;}
+.summary-item .s-label{font-size:11px;color:rgba(255,255,255,.65);margin-bottom:4px;}
+.summary-item .s-value{font-size:17px;font-weight:800;color:white;}
+.summary-item .s-value.accent{color:#90caf9;}
+.summary-item .s-value.green{color:#86efac;}
+.summary-item .s-value.red{color:#fca5a5;}
+.summary-divider{border:none;border-top:1px solid rgba(255,255,255,.15);margin:14px 0 10px;}
+
+/* TOP ROW */
+.top-row{background:var(--white);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;box-shadow:var(--shadow);display:grid;grid-template-columns:1.5fr 1.5fr 1fr 1fr auto;gap:16px;align-items:end;}
+
+/* SECTION CARD */
+.section-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;}
+.section-header{padding:12px 20px;background:var(--sky);border-bottom:2px solid var(--sky-mid);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.section-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.section-title{font-size:13px;font-weight:700;color:var(--navy);}
+.toggle-icon{margin-left:auto;color:var(--navy);font-size:12px;}
+.section-body{padding:16px 20px;}
+.section-body.collapsed{display:none;}
+
+/* FIELDS */
+.field-row{display:grid;gap:12px;margin-bottom:12px;}
+.field-row:last-child{margin-bottom:0;}
+.field-row.cols-2{grid-template-columns:1fr 1fr;}
+.field-row.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.field-row.cols-4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.field-row.cols-5{grid-template-columns:1fr 1fr 1fr 1fr 1fr;}
+.field-row.cols-2-1{grid-template-columns:2fr 1fr;}
+.field-row.cols-1-2{grid-template-columns:1fr 2fr;}
+.field-group{display:flex;flex-direction:column;gap:4px;}
+label{font-size:12px;font-weight:600;color:var(--gray-700);}
+label .req{color:var(--red);margin-left:2px;}
+input,select,textarea{width:100%;padding:8px 10px;font-size:13px;font-family:var(--font);border:1.5px solid var(--border);border-radius:6px;background:var(--white);color:var(--gray-800);transition:border-color .15s,box-shadow .15s;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:var(--blue-bright);box-shadow:0 0 0 3px rgba(25,118,210,.12);}
+input[readonly],input[disabled]{background:var(--gray-100);color:var(--gray-600);cursor:default;}
+select{cursor:pointer;}
+textarea{resize:vertical;min-height:60px;}
+.input-addon{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;}
+.input-addon input{border:none;border-radius:0;flex:1;}
+.input-addon .addon{padding:8px 10px;background:var(--gray-100);color:var(--gray-600);font-size:12px;border-left:1px solid var(--border);white-space:nowrap;}
+.display-value{padding:8px 10px;font-size:13px;font-weight:700;background:var(--sky);border:1.5px solid var(--sky-mid);border-radius:6px;min-height:38px;display:flex;align-items:center;}
+.display-value.red{background:var(--red-bg);border-color:#fca5a5;color:var(--red);}
+.display-value.blue{color:var(--blue);}
+.display-value.green{background:var(--green-bg);color:var(--green);}
+.model-code-badge{display:inline-flex;align-items:center;padding:8px 12px;background:var(--sky);border:1.5px solid var(--blue);border-radius:6px;font-size:13px;font-weight:700;color:var(--blue);min-height:38px;}
+.auto-badge{font-size:10px;padding:2px 6px;background:#ede9fe;color:#5b21b6;border-radius:4px;font-weight:600;margin-left:4px;}
+.sc-info{font-size:12px;color:var(--gray-600);margin-top:2px;min-height:16px;}
+.field-note{font-size:11px;color:var(--blue);margin-top:2px;}
+.divider{border:none;border-top:1px solid var(--border);margin:12px 0;}
+
+/* FINANCE GRID */
+.finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.finance-col{display:flex;flex-direction:column;gap:10px;}
+.rate-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;}
+
+/* COST */
+.two-col-panel{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
+.cost-list{display:flex;flex-direction:column;gap:1px;}
+.cost-item{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--gray-100);font-size:13px;}
+.cost-item:last-child{border-bottom:none;}
+.cost-item .label{color:var(--gray-700);}
+.cost-item .amount{font-weight:600;}
+.cost-item.total-row{background:var(--sky);margin:0 -8px;padding:8px;border-radius:6px;border-bottom:none;}
+.cost-item.total-row .label{font-weight:700;color:var(--navy);font-size:14px;}
+.cost-item.total-row .amount{color:var(--blue);font-size:16px;font-weight:800;}
+.cost-item.deduct-row .amount{color:var(--green);}
+.cost-item.net-row{background:var(--navy);margin:8px -8px 0;padding:8px;border-radius:8px;border-bottom:none;}
+.cost-item.net-row .label{color:white;font-weight:700;font-size:14px;}
+.cost-item.net-row .amount{color:#90caf9;font-size:18px;font-weight:800;}
+.cost-item.amber-row{background:var(--amber-bg);margin:0 -8px;padding:7px 8px;border-radius:4px;border-bottom:none;}
+.cost-item.amber-row .amount{color:var(--amber);font-weight:700;}
+.note-text{font-size:11px;color:var(--red);font-style:italic;margin-top:6px;}
+
+/* CAMPAIGN TABLE */
+.camp-table{width:100%;border-collapse:collapse;}
+.camp-table th{text-align:left;padding:8px 10px;background:var(--gray-100);border-bottom:2px solid var(--border);font-size:12px;color:var(--gray-700);font-weight:600;}
+.camp-table td{padding:5px 6px;border-bottom:1px solid var(--gray-100);}
+.camp-table td input,.camp-table td select{padding:5px 8px;font-size:12px;border-radius:4px;}
+
+/* ACCESSORY TABLE */
+.acc-table{width:100%;border-collapse:collapse;margin-top:6px;}
+.acc-table th{text-align:left;padding:7px 8px;background:var(--gray-100);border-bottom:2px solid var(--border);font-size:11px;color:var(--gray-700);font-weight:600;}
+.acc-table td{padding:5px 6px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
+.acc-table input,.acc-table select{padding:4px 6px;font-size:12px;border-radius:4px;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);transition:all .15s;}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-bright));color:white;box-shadow:0 2px 6px rgba(21,101,192,.35);}
+.btn-primary:hover{transform:translateY(-1px);}
+.btn-success{background:var(--green);color:white;}
+.btn-success:hover{background:#155e32;}
+.btn-finance{background:linear-gradient(135deg,#d97706,#b45309);color:white;box-shadow:0 2px 6px rgba(180,83,9,.35);}
+.btn-finance:hover{transform:translateY(-1px);}
+.btn-danger{background:var(--red);color:white;}
+.btn-outline{background:white;color:var(--blue);border:1.5px solid var(--blue);}
+.btn-outline:hover{background:var(--sky);}
+.btn-ghost{background:transparent;color:var(--gray-600);border:1.5px solid var(--border);}
+.btn-ghost:hover{background:var(--gray-100);}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn-icon{padding:6px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;}
+.add-row-btn{display:flex;align-items:center;gap:6px;padding:8px 12px;border:1.5px dashed var(--border);border-radius:6px;color:var(--gray-600);font-size:12px;font-weight:600;cursor:pointer;background:transparent;font-family:var(--font);transition:all .15s;width:100%;justify-content:center;}
+.add-row-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--sky);}
+
+/* PROVIDER BADGE */
+.provider-badge{padding:8px 14px;border-radius:6px;font-size:13px;font-weight:800;display:inline-flex;align-items:center;border:2px solid;min-height:38px;min-width:60px;justify-content:center;}
+.provider-TTL{background:#fff7e6;color:#d97706;border-color:#fbbf24;}
+.provider-SCBL{background:#e6f7ff;color:#0369a1;border-color:#38bdf8;}
+.provider-TTB{background:#eff6ff;color:#1d4ed8;border-color:#60a5fa;}
+.provider-ICBC{background:#fef2f2;color:#dc2626;border-color:#f87171;}
+.provider-BAY{background:#f0fdf4;color:#16a34a;border-color:#4ade80;}
+.provider-KL{background:#fdf4ff;color:#7c3aed;border-color:#c084fc;}
+.provider-KKP{background:#fff7ed;color:#c2410c;border-color:#fb923c;}
+.provider-TISCO{background:#f8fafc;color:#334155;border-color:#94a3b8;}
+
+/* ACTION BAR */
+.action-bar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center;z-index:90;box-shadow:0 -4px 16px rgba(0,0,0,.08);}
+.action-bar-left,.action-bar-right{display:flex;gap:10px;}
+
+/* TOAST */
+.toast{position:fixed;top:70px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:9999;box-shadow:var(--shadow-lg);transform:translateX(120%);transition:transform .3s ease;max-width:350px;}
+.toast.show{transform:translateX(0);}
+.toast-success{background:var(--green);color:white;}
+.toast-error{background:var(--red);color:white;}
+.toast-info{background:var(--navy);color:white;}
+.toast-warning{background:#d97706;color:white;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:white;border-radius:12px;max-width:500px;width:100%;padding:28px;box-shadow:var(--shadow-lg);}
+.modal-title{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+.modal-desc{font-size:13px;color:var(--gray-600);margin-bottom:20px;line-height:1.6;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+@media(max-width:900px){
+  .top-row{grid-template-columns:1fr 1fr;}
+  .finance-grid,.two-col-panel{grid-template-columns:1fr;}
+  .summary-grid{grid-template-columns:1fr 1fr;}
+  .field-row.cols-4,.field-row.cols-5{grid-template-columns:1fr 1fr;}
+  .rate-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>กำลังโหลดข้อมูล...</p>
+</div>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-left">
+    <div class="header-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0f2a4a" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div>
+      <div class="header-title">IKS Sales Order System</div>
+      <div class="header-subtitle">อีซูซุกรุงเทพเซลส์ — ใบยืนยันข้อตกลงการขาย</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="window.print()">🖨️ พิมพ์</button>
+    <button class="btn btn-outline" onclick="saveDraft()">💾 บันทึกร่าง</button>
+  </div>
+</header>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <span class="status-pill status-DRAFT" id="status-pill">DRAFT</span>
+  <span class="doc-number">SO: <span id="so-number-display">— ยังไม่บันทึก —</span></span>
+  <span class="doc-number">วันที่: <span id="today-display"></span></span>
+</div>
+
+<div class="form-container">
+
+<!-- SUMMARY -->
+<div class="summary-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.8)">สรุปยอด (Real-time)</div>
+  </div>
+  <div class="summary-grid">
+    <div class="summary-item"><div class="s-label">ราคา CRP</div><div class="s-value" id="sum-crp">—</div></div>
+    <div class="summary-item"><div class="s-label">เงินดาวน์</div><div class="s-value accent" id="sum-down">—</div></div>
+    <div class="summary-item"><div class="s-label">ยอดจัด</div><div class="s-value green" id="sum-finance">—</div></div>
+    <div class="summary-item"><div class="s-label">ค่าใช้จ่าย ณ วันออกรถ</div><div class="s-value red" id="sum-expense">—</div></div>
+  </div>
+  <hr class="summary-divider">
+  <div class="summary-grid">
+    <div class="summary-item"><div class="s-label">ผ่อนต่อเดือน</div><div class="s-value" id="sum-monthly">—</div></div>
+    <div class="summary-item"><div class="s-label">จำนวนงวด</div><div class="s-value accent" id="sum-term">—</div></div>
+    <div class="summary-item"><div class="s-label">ดอกเบี้ยใช้จริง</div><div class="s-value green" id="sum-rate">—</div></div>
+    <div class="summary-item"><div class="s-label">% ดาวน์</div><div class="s-value" id="sum-down-pct">—</div></div>
+  </div>
+</div>
+
+<!-- TOP ROW -->
+<div class="top-row">
+  <div class="field-group">
+    <label>สาขา <span class="req">*</span></label>
+    <select id="branch" onchange="onBranchChange()">
+      <option value="">— เลือกสาขา —</option>
+    </select>
+  </div>
+  <div class="field-group">
+    <label>SC CODE <span class="req">*</span></label>
+    <select id="sc-code" onchange="onSCChange()">
+      <option value="">— เลือก SC —</option>
+    </select>
+    <div class="sc-info" id="sc-name-display">—</div>
+  </div>
+  <div class="field-group">
+    <label>วันที่ขาย <span class="req">*</span></label>
+    <input type="date" id="sale-date" onchange="calcAll()">
+  </div>
+  <div class="field-group">
+    <label>PS/BK</label>
+    <select id="ps-bk">
+      <option value="PS">PS</option>
+      <option value="BK">BK</option>
+    </select>
+  </div>
+  <div class="field-group">
+    <label>&nbsp;</label>
+    <div id="so-badge" style="padding:8px 14px;background:var(--sky);border-radius:6px;font-size:12px;color:var(--gray-600);min-height:38px;display:flex;align-items:center;">Auto SO#</div>
+  </div>
+</div>
+
+<!-- SECTION 1: ลูกค้า -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#1565C0">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <span class="section-title">ข้อมูลลูกค้า</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="field-row cols-2">
+      <div class="field-group">
+        <label>ชื่อลูกค้า / บริษัท <span class="req">*</span></label>
+        <input type="text" id="customer-name" placeholder="ชื่อ-นามสกุล หรือชื่อบริษัท">
+      </div>
+      <div class="field-group">
+        <label>เลขบัตร / เลขทะเบียนนิติบุคคล</label>
+        <input type="text" id="tax-id" placeholder="0-0000-00000-00-0" maxlength="17">
+      </div>
+    </div>
+    <div class="field-row cols-3">
+      <div class="field-group" style="grid-column:span 2">
+        <label>ที่อยู่</label>
+        <input type="text" id="address" placeholder="บ้านเลขที่ หมู่ ซอย">
+      </div>
+      <div class="field-group">
+        <label>ถนน</label>
+        <input type="text" id="road">
+      </div>
+    </div>
+    <div class="field-row cols-4">
+      <div class="field-group"><label>ตำบล/แขวง</label><input type="text" id="subdistrict"></div>
+      <div class="field-group"><label>อำเภอ/เขต</label><input type="text" id="district"></div>
+      <div class="field-group">
+        <label>จังหวัด</label>
+        <select id="province">
+          <option value="">— เลือก —</option>
+          <option>กรุงเทพมหานคร</option><option>นนทบุรี</option><option>ปทุมธานี</option>
+          <option>สมุทรปราการ</option><option>สมุทรสาคร</option><option>นครปฐม</option>
+          <option>ชลบุรี</option><option>ระยอง</option><option>พระนครศรีอยุธยา</option>
+          <option>เชียงใหม่</option><option>ขอนแก่น</option><option>อื่นๆ</option>
+        </select>
+      </div>
+      <div class="field-group"><label>รหัสไปรษณีย์</label><input type="text" id="postal" maxlength="5"></div>
+    </div>
+    <div class="field-row cols-4">
+      <div class="field-group"><label>Mobile <span class="req">*</span></label><input type="tel" id="customer-mobile" placeholder="08X-XXX-XXXX"></div>
+      <div class="field-group"><label>Line ID</label><input type="text" id="line-id"></div>
+      <div class="field-group"><label>วันเกิด</label><input type="date" id="birth-date"></div>
+      <div class="field-group">
+        <label>สถานะลูกค้า</label>
+        <select id="customer-status"><option value="">— เลือก —</option></select>
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="field-row cols-5">
+      <div class="field-group"><label>เลขที่ใบจอง</label><input type="text" id="booking-no" placeholder="RES-00000"></div>
+      <div class="field-group"><label>วันที่จอง</label><input type="date" id="booking-date"></div>
+      <div class="field-group">
+        <label>เงินจอง</label>
+        <div class="input-addon"><input type="number" id="booking-amount" value="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+      </div>
+      <div class="field-group"><label>วันรับรถ</label><input type="date" id="delivery-date"></div>
+      <div class="field-group">
+        <label>ที่มา</label>
+        <select id="lead-source"><option value="">— เลือก —</option></select>
+      </div>
+    </div>
+    <div class="field-row cols-3">
+      <div class="field-group">
+        <label>ประเภทการซื้อ</label>
+        <select id="purchase-type"><option value="">— เลือก —</option></select>
+      </div>
+      <div class="field-group"><label>วันรับบิล</label><input type="date" id="invoice-date"></div>
+      <div class="field-group">
+        <label>ประเทศ</label>
+        <select id="country"><option value="TH">ไทย</option></select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 2: การขาย / สินเชื่อ -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#1565C0">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+    </div>
+    <span class="section-title">ข้อมูลการขาย / สินเชื่อ</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="field-row cols-3">
+      <div class="field-group">
+        <label>ประเภทการขาย <span class="req">*</span></label>
+        <select id="sale-type" onchange="onSaleTypeChange()">
+          <option value="finance">จัดไฟแนนซ์</option>
+          <option value="cash">ซื้อสด</option>
+        </select>
+      </div>
+      <div class="field-group" id="fp-group">
+        <label>บริษัทไฟแนนซ์ <span class="req">*</span></label>
+        <select id="finance-provider" onchange="onProviderChange()">
+          <option value="">— เลือก —</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>เงื่อนไขการผ่อน</label>
+        <select id="payment-cond"><option value="end">ปลายงวด</option><option value="start">ต้นงวด</option></select>
+      </div>
+    </div>
+    <div class="field-row cols-2-1" id="fp-program-row">
+      <div class="field-group">
+        <label>โปรแกรมสินเชื่อ / บัตรกำนัล</label>
+        <select id="finance-program"><option value="">— เลือกโปรแกรม —</option></select>
+      </div>
+      <div class="field-group" id="provider-badge-wrap" style="display:none">
+        <label>&nbsp;</label>
+        <div id="provider-badge" class="provider-badge"></div>
+      </div>
+    </div>
+    <div class="field-group" style="margin-bottom:12px">
+      <label>หมายเหตุไฟแนนซ์ / เหตุผลลดดอกเบี้ย</label>
+      <input type="text" id="finance-note" placeholder="ระบุเหตุผลลดดอกเบี้ย เช่น ชนดอกเบี้ย SCB / พนง.ประจำ ลดดบ. 0.10 สต.">
+    </div>
+    <hr class="divider">
+    <div class="field-row cols-4">
+      <div class="field-group">
+        <label>สถานะภาพ</label>
+        <select id="marital-status"><option value="">— เลือก —</option></select>
+      </div>
+      <div class="field-group">
+        <label>อาชีพ</label>
+        <select id="occupation"><option value="">— เลือก —</option></select>
+      </div>
+      <div class="field-group">
+        <label>รายได้</label>
+        <select id="income-range"><option value="">— เลือก —</option></select>
+      </div>
+      <div class="field-group">
+        <label>ที่อยู่อาศัย</label>
+        <select id="residence-type"><option value="">— เลือก —</option></select>
+      </div>
+    </div>
+    <div class="field-row cols-4">
+      <div class="field-group"><label>ผู้ค้ำ</label><input type="text" id="guarantor-name" placeholder="ชื่อผู้ค้ำ (ถ้ามี)"></div>
+      <div class="field-group"><label>ผู้กู้ร่วม</label><input type="text" id="co-borrower-name" placeholder="ชื่อผู้กู้ร่วม (ถ้ามี)"></div>
+      <div class="field-group">
+        <label>ภาระหนี้</label>
+        <div class="input-addon"><input type="number" id="debt-amount" value="0" min="0"><span class="addon">บาท/เดือน</span></div>
+      </div>
+      <div class="field-group">
+        <label>เหตุผลแก้ไข</label>
+        <select id="edit-reason">
+          <option value="">— ระบุ (ถ้ามี) —</option>
+          <option>แก้ไขดาวน์</option><option>แก้ไขดอกเบี้ย</option>
+          <option>แก้ไขรุ่น/สี</option><option>แก้ไขราคา</option>
+          <option>แก้ไขไฟแนนซ์</option><option>อื่นๆ</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: รถ + ราคา -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#0f7b3a">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </div>
+    <span class="section-title">เงื่อนไขการขาย / รถที่ขาย</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="field-row cols-4">
+      <div class="field-group" style="grid-column:span 2">
+        <label>รุ่นรถ <span class="req">*</span></label>
+        <select id="vehicle-model" onchange="onModelChange()">
+          <option value="">— เลือกรุ่นรถ —</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>Model Code <span class="auto-badge">AUTO</span></label>
+        <div class="model-code-badge" id="model-code-display">—</div>
+      </div>
+      <div class="field-group">
+        <label>สีภายในโบดี้</label>
+        <select id="body-color">
+          <option>สีดำ</option><option>สีเทา</option><option>สีครีม</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row cols-2">
+      <div class="field-group">
+        <label>สีรถ <span class="req">*</span></label>
+        <select id="vehicle-color" onchange="calcAll()">
+          <option value="">— เลือกสี —</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label>สีพิเศษ / ระบุเอง</label>
+        <input type="text" id="color-custom" placeholder="ระบุสีกรณีเลือก OTHER">
+      </div>
+    </div>
+    <hr class="divider">
+    <div class="finance-grid">
+      <!-- LEFT -->
+      <div class="finance-col">
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>ราคา CRP <span class="req">*</span></label>
+            <div class="input-addon"><input type="number" id="crp-amount" placeholder="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+          <div class="field-group">
+            <label>ราคาเปิดใบเสร็จ <span class="req">*</span></label>
+            <div class="input-addon"><input type="number" id="invoice-amount" placeholder="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>Sub Down</label>
+            <div class="input-addon"><input type="number" id="sub-down" value="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+          <div class="field-group">
+            <label>ตู้/หลังคา/แม็กซ์</label>
+            <div class="input-addon"><input type="number" id="body-acc-amount" value="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>ISG</label>
+            <div class="input-addon"><input type="number" id="isg-amount" value="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+          <div class="field-group">
+            <label>รถเก่า / Trade In</label>
+            <div class="input-addon"><input type="number" id="trade-in-amount" value="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT -->
+      <div class="finance-col">
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>เงินดาวน์ <span class="req">*</span></label>
+            <div class="input-addon"><input type="number" id="down-payment" placeholder="0" onchange="calcAll()" min="0"><span class="addon">บาท</span></div>
+          </div>
+          <div class="field-group">
+            <label>คิดเป็น % <span class="auto-badge">AUTO</span></label>
+            <div class="display-value blue" id="down-pct-display">—</div>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>ยอดจัด <span class="auto-badge">AUTO</span></label>
+            <div class="display-value red" id="finance-amount-display">—</div>
+          </div>
+          <div class="field-group">
+            <label>ดบ.หน้าตาราง (%)</label>
+            <div class="input-addon"><input type="number" id="table-rate" value="3.05" step="0.01" onchange="calcAll()" min="0" max="100"><span class="addon">%</span></div>
+          </div>
+        </div>
+        <div class="rate-grid">
+          <div class="field-group">
+            <label>ขอลด ดบ.</label>
+            <div class="input-addon"><input type="number" id="rate-discount" value="0" step="0.01" onchange="calcAll()" min="0"><span class="addon">%</span></div>
+          </div>
+          <div class="field-group">
+            <label>ดบ.ใช้จริง <span class="auto-badge">AUTO</span></label>
+            <div class="display-value blue" id="actual-rate-display">—</div>
+          </div>
+          <div class="field-group">
+            <label>ดบ.ลด ต.ม.</label>
+            <div class="display-value" id="rate-monthly-display">—</div>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>ระยะเวลา (ปี) <span class="req">*</span></label>
+            <select id="term-years" onchange="calcAll()">
+              <option value="1">1 ปี (12 งวด)</option><option value="2">2 ปี (24 งวด)</option>
+              <option value="3">3 ปี (36 งวด)</option><option value="4">4 ปี (48 งวด)</option>
+              <option value="5" selected>5 ปี (60 งวด)</option><option value="6">6 ปี (72 งวด)</option>
+              <option value="7">7 ปี (84 งวด)</option><option value="8">8 ปี (96 งวด)</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>ผ่อนต่อเดือน <span class="auto-badge">AUTO</span></label>
+            <div class="display-value red" id="monthly-payment-display">—</div>
+          </div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field-group">
+            <label>เงินดาวน์ที่ลูกค้ามี</label>
+            <div class="input-addon"><input type="number" id="customer-available-down" value="0" min="0"><span class="addon">บาท</span></div>
+          </div>
+          <div class="field-group">
+            <label>จำนวนงวด <span class="auto-badge">AUTO</span></label>
+            <div class="display-value blue" id="term-display">60 งวด</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 4: ค่าใช้จ่าย + แคมเปญ -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#7b3fa0">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <span class="section-title">ค่าใช้จ่าย ณ วันออกรถ + แคมเปญที่ใช้</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="two-col-panel">
+      <!-- COST -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">สรุปค่าใช้จ่าย</div>
+        <div class="cost-list">
+          <div class="cost-item"><span class="label">ดาวน์ <span id="cost-down-pct" style="font-size:11px;color:var(--gray-600)"></span></span><span class="amount" id="cost-down">—</span></div>
+          <div class="cost-item"><span class="label">ประกัน</span><div class="input-addon" style="max-width:130px"><input type="number" id="insurance-amount" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item"><span class="label">ทะเบียน</span><div class="input-addon" style="max-width:130px"><input type="number" id="registration-amount" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item"><span class="label">ตู้/หลังคา/แม็กซ์</span><span class="amount" id="cost-body-acc">—</span></div>
+          <div class="cost-item"><span class="label">อื่นๆ</span><div class="input-addon" style="max-width:130px"><input type="number" id="other-amount" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item"><span class="label">มัดจำป้ายแดง</span><div class="input-addon" style="max-width:130px"><input type="number" id="plate-deposit" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item"><span class="label">ภาษี Subdown 5%</span><span class="amount" id="cost-tax-subdown">—</span></div>
+          <div class="cost-item total-row"><span class="label">รวมค่าใช้จ่าย</span><span class="amount" id="cost-total">—</span></div>
+          <div class="cost-item deduct-row"><span class="label">หัก เงินจอง</span><span class="amount" id="cost-booking-deduct">—</span></div>
+          <div class="cost-item deduct-row"><span class="label">Subdown</span><span class="amount" id="cost-subdown-deduct">—</span></div>
+          <div class="cost-item deduct-row"><span class="label">รถเก่า/ISG</span><span class="amount" id="cost-tradein-deduct">—</span></div>
+          <div class="cost-item amber-row"><span class="label">ส่วนลดตามนโยบายบริษัท</span><div class="input-addon" style="max-width:130px"><input type="number" id="company-discount" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item deduct-row"><span class="label">ส่วนลดทะเบียนรายรุ่น</span><div class="input-addon" style="max-width:130px"><input type="number" id="reg-discount" value="0" onchange="calcAll()" min="0" style="padding:4px 6px;font-size:12px"><span class="addon" style="font-size:11px">บาท</span></div></div>
+          <div class="cost-item net-row"><span class="label">สรุปค่าใช้จ่าย ณ วันออกรถ</span><span class="amount" id="cost-net">—</span></div>
+        </div>
+        <p class="note-text">***คำอธิบายเพิ่มเติมเฉพาะบัตรกำนัลที่มีเงื่อนไขแถมประกัน หรือ ดบพิเศษ***</p>
+      </div>
+      <!-- CAMPAIGNS -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">แคมเปญที่ใช้</div>
+        <table class="camp-table">
+          <thead><tr><th style="width:40%">แคมเปญ</th><th style="width:25%">มูลค่า (บาท)</th><th style="width:30%">ประเภท</th><th style="width:5%"></th></tr></thead>
+          <tbody id="campaign-tbody"></tbody>
+        </table>
+        <button class="add-row-btn" onclick="addCampaignRow()" style="margin-top:8px">+ เพิ่มแคมเปญ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5: อุปกรณ์ -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#b45309">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    </div>
+    <span class="section-title">อุปกรณ์ตกแต่ง / ของแถม / อุปกรณ์ขายเพิ่ม</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="two-col-panel">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">อุปกรณ์ตกแต่ง / ของแถม</div>
+        <table class="acc-table"><thead><tr><th>รายการ</th><th>รายละเอียด</th><th>ราคา</th><th></th></tr></thead>
+        <tbody id="gift-tbody"></tbody></table>
+        <button class="add-row-btn" onclick="addGiftRow('gift-tbody')" style="margin-top:6px">+ เพิ่มรายการ</button>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px;">อุปกรณ์ขายเพิ่มเติม</div>
+        <table class="acc-table"><thead><tr><th>รายการ</th><th>ราคา</th><th></th></tr></thead>
+        <tbody id="addon-tbody"></tbody></table>
+        <button class="add-row-btn" onclick="addAddonRow()" style="margin-top:6px">+ เพิ่มรายการ</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 6: หมายเหตุ -->
+<div class="section-card">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="section-icon" style="background:#525252">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    </div>
+    <span class="section-title">หมายเหตุเพิ่มเติม</span>
+    <span class="toggle-icon">▾</span>
+  </div>
+  <div class="section-body">
+    <div class="field-group">
+      <label>หมายเหตุ (ถ้ามี)</label>
+      <textarea id="remark" rows="3" placeholder="ระบุหมายเหตุเพิ่มเติม..."></textarea>
+    </div>
+  </div>
+</div>
+
+</div><!-- end form-container -->
+
+<!-- ACTION BAR -->
+<div class="action-bar">
+  <div class="action-bar-left">
+    <button class="btn btn-ghost" onclick="resetForm()">✕ ล้างฟอร์ม</button>
+    <button class="btn btn-outline" id="btn-draft" onclick="saveDraft()">💾 บันทึกร่าง</button>
+  </div>
+  <div class="action-bar-right">
+    <button class="btn btn-ghost" onclick="window.print()">🖨️ พิมพ์ใบขาย</button>
+    <button class="btn btn-finance" id="btn-send-finance" onclick="showFinanceModal()" style="display:none">
+      📤 ส่งสินเชื่อ → Finance App
+    </button>
+    <button class="btn btn-success" id="btn-submit" onclick="submitForApproval()">📨 ส่งขออนุมัติ</button>
+    <button class="btn btn-primary" id="btn-save" onclick="saveOrder()">✅ บันทึกข้อมูล</button>
+  </div>
+</div>
+
+<!-- FINANCE MODAL -->
+<div id="finance-modal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">📤 ส่งข้อมูลไป Finance App</div>
+    <div class="modal-desc">
+      ระบบจะสร้าง Case สินเชื่อใหม่ใน <strong>IKS Finance App</strong> โดยใช้ข้อมูลจากใบขายนี้<br><br>
+      <strong>ข้อมูลที่จะส่ง:</strong><br>
+      • ชื่อลูกค้า / เบอร์โทร<br>
+      • รุ่นรถ / ราคา / ดาวน์ / ยอดจัด<br>
+      • บริษัทไฟแนนซ์ / ดอกเบี้ย / จำนวนงวด<br>
+      • ผ่อนต่อเดือน
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeFinanceModal()">ยกเลิก</button>
+      <button class="btn btn-finance" onclick="sendToFinance()">✅ ยืนยันส่งสินเชื่อ</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://ndyqnuyijgcqxktqilwj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5keXFudXlpamdjcXhrdHFpbHdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MjY4ODIsImV4cCI6MjA5NjMwMjg4Mn0.PW-WZh5h-QnXiAnJrQYej3RnQKAXoh3jU15vU7KO1oU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// MASTER DATA CACHE
+// ============================================================
+let BRANCHES = [], SC_LIST = [], MODELS = [], PROVIDERS = [], PROGRAMS = [], CAMPAIGNS_LIST = [];
+let CURRENT_SO_ID = null;
+let CURRENT_STATUS = 'DRAFT';
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  document.getElementById('loading-overlay').style.display = 'flex';
+  
+  // Set today
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  document.getElementById('sale-date').value = todayStr;
+  document.getElementById('invoice-date').value = todayStr;
+  document.getElementById('today-display').textContent = formatDateTH(today);
+
+  try {
+    await Promise.all([
+      loadBranches(),
+      loadModels(),
+      loadProviders(),
+      loadPrograms(),
+      loadCampaigns(),
+      loadDropdowns(),
+    ]);
+    addCampaignRow();
+    addGiftRow('gift-tbody');
+    addAddonRow();
+    calcAll();
+    showToast('โหลดข้อมูลสำเร็จ ✅', 'success');
+  } catch(e) {
+    const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Unknown error';
+    showToast('โหลดข้อมูลล้มเหลว: ' + msg, 'error');
+    console.error('Init error:', e);
+  }
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
+async function loadBranches() {
+  const { data, error } = await sb.from('branches').select('*').eq('is_active', true).order('branch_code');
+  if (error) throw error;
+  BRANCHES = data || [];
+  const sel = document.getElementById('branch');
+  sel.innerHTML = '<option value="">— เลือกสาขา —</option>';
+  BRANCHES.forEach(b => {
+    const o = document.createElement('option');
+    o.value = b.branch_code;
+    o.textContent = `${b.branch_code} - ${b.branch_name}`;
+    sel.appendChild(o);
+  });
+}
+
+async function loadSCByBranch(branchCode) {
+  if (!branchCode) { SC_LIST = []; return; }
+  const { data, error } = await sb.from('sales_consultants').select('*')
+    .eq('branch_code', branchCode).eq('is_active', true).order('sc_code');
+  if (error) throw error;
+  SC_LIST = data || [];
+  const sel = document.getElementById('sc-code');
+  sel.innerHTML = '<option value="">— เลือก SC —</option>';
+  SC_LIST.forEach(sc => {
+    const o = document.createElement('option');
+    o.value = sc.sc_code;
+    o.textContent = `${sc.sc_code} - ${sc.full_name}`;
+    o.dataset.name = sc.full_name;
+    sel.appendChild(o);
+  });
+  document.getElementById('sc-name-display').textContent = '—';
+}
+
+async function loadModels() {
+  const { data, error } = await sb.from('vehicle_models').select('*').eq('is_active', true).order('model_code');
+  if (error) throw error;
+  MODELS = data || [];
+  const sel = document.getElementById('vehicle-model');
+  sel.innerHTML = '<option value="">— เลือกรุ่นรถ —</option>';
+  MODELS.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.model_code;
+    o.textContent = `${m.model_code} - ${m.model_name}`;
+    o.dataset.price = m.crp_price;
+    o.dataset.name = m.model_name;
+    sel.appendChild(o);
+  });
+}
+
+async function loadProviders() {
+  const { data, error } = await sb.from('finance_providers').select('*').eq('is_active', true).order('provider_code');
+  if (error) throw error;
+  PROVIDERS = data || [];
+  const sel = document.getElementById('finance-provider');
+  sel.innerHTML = '<option value="">— เลือกบริษัทไฟแนนซ์ —</option>';
+  PROVIDERS.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.provider_code;
+    o.textContent = `${p.provider_code} - ${p.provider_name}`;
+    sel.appendChild(o);
+  });
+}
+
+async function loadPrograms(providerCode = null) {
+  let query = sb.from('finance_programs').select('*').eq('is_active', true).order('program_name');
+  if (providerCode) query = query.eq('provider_code', providerCode);
+  const { data, error } = await query;
+  if (error) throw error;
+  PROGRAMS = data || [];
+  const sel = document.getElementById('finance-program');
+  sel.innerHTML = '<option value="">— เลือกโปรแกรม —</option>';
+  PROGRAMS.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.program_code;
+    o.textContent = p.program_name;
+    o.dataset.rate = p.interest_rate || '';
+    sel.appendChild(o);
+  });
+}
+
+async function loadCampaigns() {
+  const { data, error } = await sb.from('campaigns').select('*').eq('is_active', true).order('campaign_name');
+  if (error) throw error;
+  CAMPAIGNS_LIST = data || [];
+}
+
+async function loadDropdowns() {
+  const { data, error } = await sb.from('master_options').select('*').eq('is_active', true).order('sort_order');
+  if (error) throw error;
+  const groups = {};
+  (data || []).forEach(o => {
+    if (!groups[o.group_code]) groups[o.group_code] = [];
+    groups[o.group_code].push(o);
+  });
+  const map = {
+    'CUSTOMER_STATUS': 'customer-status',
+    'LEAD_SOURCE': 'lead-source',
+    'PURCHASE_TYPE': 'purchase-type',
+    'MARITAL_STATUS': 'marital-status',
+    'OCCUPATION': 'occupation',
+    'INCOME_RANGE': 'income-range',
+    'RESIDENCE_TYPE': 'residence-type',
+  };
+  Object.entries(map).forEach(([group, elId]) => {
+    const sel = document.getElementById(elId);
+    if (!sel || !groups[group]) return;
+    sel.innerHTML = '<option value="">— เลือก —</option>';
+    groups[group].forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.option_code;
+      opt.textContent = o.option_name;
+      sel.appendChild(opt);
+    });
+  });
+  // Vehicle colors
+  const colorSel = document.getElementById('vehicle-color');
+  colorSel.innerHTML = '<option value="">— เลือกสี —</option>';
+  (groups['VEHICLE_COLOR'] || []).forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.option_code;
+    opt.textContent = `${o.option_code} - ${o.option_name}`;
+    colorSel.appendChild(opt);
+  });
+}
+
+// ============================================================
+// EVENT HANDLERS
+// ============================================================
+async function onBranchChange() {
+  const branch = document.getElementById('branch').value;
+  await loadSCByBranch(branch);
+}
+
+function onSCChange() {
+  const sel = document.getElementById('sc-code');
+  const opt = sel.selectedOptions[0];
+  document.getElementById('sc-name-display').textContent = opt?.dataset?.name || '—';
+}
+
+function onModelChange() {
+  const sel = document.getElementById('vehicle-model');
+  const opt = sel.selectedOptions[0];
+  if (opt?.value) {
+    document.getElementById('model-code-display').textContent = opt.value;
+    const price = parseFloat(opt.dataset.price) || 0;
+    document.getElementById('crp-amount').value = price;
+    document.getElementById('invoice-amount').value = price;
+  } else {
+    document.getElementById('model-code-display').textContent = '—';
+  }
+  calcAll();
+}
+
+async function onProviderChange() {
+  const val = document.getElementById('finance-provider').value;
+  const badge = document.getElementById('provider-badge');
+  const badgeWrap = document.getElementById('provider-badge-wrap');
+  if (val) {
+    badge.textContent = val;
+    badge.className = `provider-badge provider-${val}`;
+    badgeWrap.style.display = 'flex';
+  } else {
+    badgeWrap.style.display = 'none';
+  }
+  await loadPrograms(val || null);
+}
+
+function onSaleTypeChange() {
+  const isCash = document.getElementById('sale-type').value === 'cash';
+  document.getElementById('fp-group').style.opacity = isCash ? '0.4' : '1';
+  document.getElementById('fp-program-row').style.opacity = isCash ? '0.4' : '1';
+}
+
+// ============================================================
+// CALCULATIONS
+// ============================================================
+function n(id) { return parseFloat(document.getElementById(id)?.value) || 0; }
+function fmt(v) { return v.toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+
+function calcAll() {
+  const crp = n('crp-amount');
+  const invoice = n('invoice-amount') || crp;
+  const subDown = n('sub-down');
+  const bodyAcc = n('body-acc-amount');
+  const isg = n('isg-amount');
+  const tradeIn = n('trade-in-amount');
+  const down = n('down-payment');
+  const bookingAmt = n('booking-amount');
+  const tableRate = n('table-rate') / 100;
+  const rateDiscount = n('rate-discount') / 100;
+  const termYears = parseInt(document.getElementById('term-years')?.value || 5);
+  const termMonths = termYears * 12;
+  const insurance = n('insurance-amount');
+  const registration = n('registration-amount');
+  const otherCost = n('other-amount');
+  const plateDeposit = n('plate-deposit');
+  const companyDiscount = n('company-discount');
+  const regDiscount = n('reg-discount');
+
+  const financeAmount = Math.max(0, invoice - down - subDown - tradeIn - isg + bodyAcc);
+  const downPct = invoice > 0 ? (down / invoice) : 0;
+  const actualRate = Math.max(0, tableRate - rateDiscount);
+  const monthlyPayment = termMonths > 0 && financeAmount > 0
+    ? (financeAmount * (1 + actualRate * termYears)) / termMonths : 0;
+  const taxSubdown = subDown * 0.05;
+  const costTotal = down + insurance + registration + bodyAcc + otherCost + plateDeposit + taxSubdown;
+  const netExpense = costTotal - bookingAmt - subDown - tradeIn - isg - companyDiscount - regDiscount;
+
+  // Finance display
+  setText('finance-amount-display', financeAmount > 0 ? fmt(financeAmount) : '—');
+  setText('down-pct-display', downPct > 0 ? (downPct*100).toFixed(2)+'%' : '—');
+  setText('actual-rate-display', actualRate > 0 ? (actualRate*100).toFixed(2)+'%' : '—');
+  setText('rate-monthly-display', actualRate > 0 ? ((actualRate*100)/12).toFixed(3)+'%' : '—');
+  setText('term-display', termMonths+' งวด');
+  setText('monthly-payment-display', monthlyPayment > 0 ? fmt(monthlyPayment) : '—');
+
+  // Cost display
+  setText('cost-down', fmt(down));
+  document.getElementById('cost-down-pct').textContent = downPct > 0 ? `(${(downPct*100).toFixed(1)}%)` : '';
+  setText('cost-body-acc', bodyAcc > 0 ? fmt(bodyAcc) : '-');
+  setText('cost-tax-subdown', taxSubdown > 0 ? fmt(taxSubdown) : '-');
+  setText('cost-total', fmt(costTotal));
+  setText('cost-booking-deduct', bookingAmt > 0 ? fmt(bookingAmt) : '-');
+  setText('cost-subdown-deduct', subDown > 0 ? fmt(subDown) : '-');
+  setText('cost-tradein-deduct', (tradeIn+isg) > 0 ? fmt(tradeIn+isg) : '-');
+  setText('cost-net', fmt(Math.max(0, netExpense)));
+
+  // Summary panel
+  setText('sum-crp', crp > 0 ? fmt(crp) : '—');
+  setText('sum-down', down > 0 ? fmt(down) : '—');
+  setText('sum-finance', financeAmount > 0 ? fmt(financeAmount) : '—');
+  setText('sum-expense', netExpense > 0 ? fmt(Math.max(0,netExpense)) : '—');
+  setText('sum-monthly', monthlyPayment > 0 ? fmt(monthlyPayment) : '—');
+  setText('sum-term', termMonths+' งวด');
+  setText('sum-rate', actualRate > 0 ? (actualRate*100).toFixed(2)+'%' : '—');
+  setText('sum-down-pct', downPct > 0 ? (downPct*100).toFixed(2)+'%' : '—');
+}
+
+function setText(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
+
+// ============================================================
+// COLLECT FORM DATA
+// ============================================================
+function collectFormData() {
+  const modelSel = document.getElementById('vehicle-model');
+  const modelOpt = modelSel.selectedOptions[0];
+  const colorSel = document.getElementById('vehicle-color');
+  const colorOpt = colorSel.selectedOptions[0];
+  const termYears = parseInt(document.getElementById('term-years').value || 5);
+  const invoice = n('invoice-amount') || n('crp-amount');
+  const down = n('down-payment');
+  const subDown = n('sub-down');
+  const bodyAcc = n('body-acc-amount');
+  const isg = n('isg-amount');
+  const tradeIn = n('trade-in-amount');
+  const tableRate = n('table-rate');
+  const rateDiscount = n('rate-discount');
+  const actualRate = Math.max(0, tableRate - rateDiscount);
+  const financeAmount = Math.max(0, invoice - down - subDown - tradeIn - isg + bodyAcc);
+  const monthlyPayment = termYears > 0 && financeAmount > 0
+    ? (financeAmount * (1 + (actualRate/100) * termYears)) / (termYears * 12) : 0;
+
+  return {
+    branch_code: document.getElementById('branch').value,
+    sc_code: document.getElementById('sc-code').value,
+    ps_bk: document.getElementById('ps-bk').value,
+    sale_date: document.getElementById('sale-date').value,
+    delivery_date: document.getElementById('delivery-date').value || null,
+    customer_name: document.getElementById('customer-name').value.trim(),
+    customer_mobile: document.getElementById('customer-mobile').value.trim(),
+    customer_tax_id: document.getElementById('tax-id').value.trim() || null,
+    customer_address: document.getElementById('address').value.trim() || null,
+    customer_road: document.getElementById('road').value.trim() || null,
+    customer_subdistrict: document.getElementById('subdistrict').value.trim() || null,
+    customer_district: document.getElementById('district').value.trim() || null,
+    customer_province: document.getElementById('province').value || null,
+    customer_postal: document.getElementById('postal').value.trim() || null,
+    customer_birthdate: document.getElementById('birth-date').value || null,
+    customer_line_id: document.getElementById('line-id').value.trim() || null,
+    booking_no: document.getElementById('booking-no').value.trim() || null,
+    booking_date: document.getElementById('booking-date').value || null,
+    booking_amount: n('booking-amount'),
+    purchase_type: document.getElementById('purchase-type').value || null,
+    customer_status: document.getElementById('customer-status').value || null,
+    lead_source: document.getElementById('lead-source').value || null,
+    model_code: modelOpt?.value || null,
+    model_name_snapshot: modelOpt?.dataset?.name || null,
+    vehicle_color: colorOpt?.value || null,
+    color_name_snapshot: colorOpt?.textContent?.split(' - ')[1] || null,
+    body_color: document.getElementById('body-color').value || null,
+    crp_amount: n('crp-amount'),
+    invoice_amount: invoice,
+    sub_down: subDown,
+    body_acc_amount: bodyAcc,
+    isg_amount: isg,
+    trade_in_amount: tradeIn,
+    finance_provider_code: document.getElementById('finance-provider').value || null,
+    finance_program_code: document.getElementById('finance-program').value || null,
+    payment_condition: document.getElementById('payment-cond').value,
+    down_payment: down,
+    table_rate: tableRate,
+    rate_discount: rateDiscount,
+    actual_rate: actualRate,
+    term_years: termYears,
+    monthly_payment: monthlyPayment,
+    customer_available_down: n('customer-available-down'),
+    finance_note: document.getElementById('finance-note').value.trim() || null,
+    insurance_amount: n('insurance-amount'),
+    registration_amount: n('registration-amount'),
+    plate_deposit: n('plate-deposit'),
+    other_cost: n('other-amount'),
+    company_discount: n('company-discount'),
+    reg_discount: n('reg-discount'),
+    occupation: document.getElementById('occupation').value || null,
+    income_range: document.getElementById('income-range').value || null,
+    marital_status: document.getElementById('marital-status').value || null,
+    residence_type: document.getElementById('residence-type').value || null,
+    debt_amount: n('debt-amount'),
+    guarantor_name: document.getElementById('guarantor-name').value.trim() || null,
+    co_borrower_name: document.getElementById('co-borrower-name').value.trim() || null,
+    remark: document.getElementById('remark').value.trim() || null,
+    edit_reason: document.getElementById('edit-reason').value || null,
+    status: CURRENT_STATUS,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function validateRequired() {
+  const required = [
+    { id:'branch', label:'สาขา' },
+    { id:'sc-code', label:'SC Code' },
+    { id:'customer-name', label:'ชื่อลูกค้า' },
+    { id:'customer-mobile', label:'เบอร์โทรลูกค้า' },
+    { id:'sale-date', label:'วันที่ขาย' },
+    { id:'vehicle-model', label:'รุ่นรถ' },
+    { id:'crp-amount', label:'ราคา CRP' },
+    { id:'down-payment', label:'เงินดาวน์' },
+  ];
+  let missing = [];
+  required.forEach(r => {
+    const el = document.getElementById(r.id);
+    if (!el || !el.value) {
+      missing.push(r.label);
+      if (el) el.style.borderColor = 'var(--red)';
+    } else {
+      if (el) el.style.borderColor = '';
+    }
+  });
+  return missing;
+}
+
+// ============================================================
+// SAVE / SUBMIT
+// ============================================================
+async function saveOrder(status = null) {
+  const missing = validateRequired();
+  if (missing.length > 0) {
+    showToast('กรุณากรอก: ' + missing.join(', '), 'error');
+    return null;
+  }
+  const data = collectFormData();
+  if (status) data.status = status;
+
+  setBtnLoading(true);
+  try {
+    let result;
+    if (CURRENT_SO_ID) {
+      const { data: updated, error } = await sb.from('sales_orders').update(data).eq('id', CURRENT_SO_ID).select().single();
+      if (error) throw error;
+      result = updated;
+    } else {
+      // Generate SO number
+      const branch = data.branch_code;
+      const saleDate = new Date(data.sale_date);
+      const yymm = String(saleDate.getFullYear()).slice(2) + String(saleDate.getMonth()+1).padStart(2,'0');
+      const prefix = branch + yymm;
+      const { count } = await sb.from('sales_orders').select('*', {count:'exact',head:true}).like('so_number', prefix+'%');
+      const seq = String((count || 0) + 1).padStart(3, '0');
+      data.so_number = prefix + seq;
+
+      const { data: inserted, error } = await sb.from('sales_orders').insert(data).select().single();
+      if (error) throw error;
+      result = inserted;
+      CURRENT_SO_ID = result.id;
+    }
+
+    // Save campaigns
+    await saveCampaigns(CURRENT_SO_ID);
+
+    // Update status display
+    CURRENT_STATUS = result.status;
+    updateStatusDisplay(result);
+    showToast(`บันทึกเรียบร้อย — SO: ${result.so_number}`, 'success');
+
+    if (result.status === 'APPROVED' || result.status === 'DRAFT') {
+      document.getElementById('btn-send-finance').style.display = 'flex';
+    }
+    return result;
+  } catch(e) {
+    showToast('บันทึกไม่สำเร็จ: ' + e.message, 'error');
+    console.error(e);
+    return null;
+  } finally {
+    setBtnLoading(false);
+  }
+}
+
+async function saveDraft() { await saveOrder('DRAFT'); }
+
+async function submitForApproval() {
+  const result = await saveOrder('PENDING_APPROVAL');
+  if (result) showToast('ส่งขออนุมัติแล้ว ✅', 'success');
+}
+
+async function saveCampaigns(orderId) {
+  // Delete existing
+  await sb.from('sales_order_campaigns').delete().eq('sales_order_id', orderId);
+  // Insert new
+  const rows = [];
+  document.querySelectorAll('#campaign-tbody tr').forEach(tr => {
+    const sels = tr.querySelectorAll('select');
+    const inp = tr.querySelector('input[type=number]');
+    if (sels[0]?.value) {
+      rows.push({
+        sales_order_id: orderId,
+        campaign_code: sels[0].value,
+        campaign_name: sels[0].selectedOptions[0]?.textContent || '',
+        benefit_amount: parseFloat(inp?.value) || 0,
+        action_type: sels[1]?.value || null,
+      });
+    }
+  });
+  if (rows.length > 0) {
+    await sb.from('sales_order_campaigns').insert(rows);
+  }
+}
+
+// ============================================================
+// SEND TO FINANCE
+// ============================================================
+function showFinanceModal() { document.getElementById('finance-modal').style.display = 'flex'; }
+function closeFinanceModal() { document.getElementById('finance-modal').style.display = 'none'; }
+
+async function sendToFinance() {
+  closeFinanceModal();
+  if (!CURRENT_SO_ID) {
+    showToast('กรุณาบันทึกใบขายก่อน', 'warning');
+    return;
+  }
+  setBtnLoading(true);
+  try {
+    const branch = document.getElementById('branch').value;
+    const scCode = document.getElementById('sc-code').value;
+    const scName = document.getElementById('sc-name-display').textContent;
+    const providerCode = document.getElementById('finance-provider').value;
+    const modelOpt = document.getElementById('vehicle-model').selectedOptions[0];
+    const termYears = parseInt(document.getElementById('term-years').value || 5);
+    const invoice = n('invoice-amount') || n('crp-amount');
+    const down = n('down-payment');
+    const subDown = n('sub-down');
+    const bodyAcc = n('body-acc-amount');
+    const isg = n('isg-amount');
+    const tradeIn = n('trade-in-amount');
+    const tableRate = n('table-rate');
+    const rateDiscount = n('rate-discount');
+    const actualRate = Math.max(0, tableRate - rateDiscount);
+    const financeAmount = Math.max(0, invoice - down - subDown - tradeIn - isg + bodyAcc);
+    const monthlyPayment = termYears > 0 && financeAmount > 0
+      ? (financeAmount * (1 + (actualRate/100) * termYears)) / (termYears * 12) : 0;
+
+    // Generate case_id for finance app
+    const today = new Date();
+    const yymm = String(today.getFullYear()).slice(2) + String(today.getMonth()+1).padStart(2,'0');
+    const prefix = branch + yymm;
+    const { count } = await sb.from('finance_cases').select('*', {count:'exact',head:true}).like('case_id', prefix+'%');
+    const seq = String((count || 0) + 1).padStart(3, '0');
+    const caseId = prefix + seq;
+
+    const financeCase = {
+      case_id: caseId,
+      submit_date: today.toISOString().split('T')[0],
+      branch: branch,
+      sales_code: scCode,
+      sales_name: scName === '—' ? '' : scName,
+      fin_code: providerCode,
+      fin_name: PROVIDERS.find(p => p.provider_code === providerCode)?.provider_name || providerCode,
+      customer_name: document.getElementById('customer-name').value.trim(),
+      customer_phone: document.getElementById('customer-mobile').value.trim(),
+      model_no: modelOpt?.value || '',
+      selling_name: modelOpt?.dataset?.name || '',
+      car_color: document.getElementById('vehicle-color').value,
+      car_price: n('crp-amount'),
+      equipment: bodyAcc,
+      sub_down_add: 0,
+      discount_crp: 0,
+      total_car_price: invoice + bodyAcc,
+      down_real: down,
+      discount_down: 0,
+      discount_sub_down: subDown,
+      total_down: down + subDown,
+      finance_amount: financeAmount,
+      interest: tableRate,
+      interest_discount: rateDiscount,
+      real_interest: actualRate,
+      term: termYears * 12,
+      installment: monthlyPayment,
+      occupation: document.getElementById('occupation').value || '',
+      note: document.getElementById('finance-note').value || '',
+      status: 'รับใบคำขอ',
+      round: 1,
+    };
+
+    const { error } = await sb.from('finance_cases').insert(financeCase);
+    if (error) throw error;
+
+    // Link back to sales_order
+    await sb.from('sales_orders').update({ finance_case_id: caseId, status: 'FINANCE_PROCESSING' }).eq('id', CURRENT_SO_ID);
+    CURRENT_STATUS = 'FINANCE_PROCESSING';
+    updateStatusDisplay({ status: 'FINANCE_PROCESSING', so_number: document.getElementById('so-number-display').textContent });
+
+    showToast(`ส่งสินเชื่อสำเร็จ! Case ID: ${caseId}`, 'success');
+  } catch(e) {
+    showToast('ส่งสินเชื่อไม่สำเร็จ: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    setBtnLoading(false);
+  }
+}
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function updateStatusDisplay(order) {
+  document.getElementById('so-number-display').textContent = order.so_number || '—';
+  document.getElementById('so-badge').textContent = order.so_number || 'Auto SO#';
+  const pill = document.getElementById('status-pill');
+  pill.textContent = order.status;
+  pill.className = `status-pill status-${order.status}`;
+}
+
+function toggleSection(header) {
+  const body = header.nextElementSibling;
+  const icon = header.querySelector('.toggle-icon');
+  if (body) {
+    body.classList.toggle('collapsed');
+    icon.textContent = body.classList.contains('collapsed') ? '▸' : '▾';
+  }
+}
+
+function setBtnLoading(loading) {
+  ['btn-save','btn-draft','btn-submit'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = loading;
+  });
+}
+
+function addCampaignRow() {
+  const tbody = document.getElementById('campaign-tbody');
+  const campOpts = CAMPAIGNS_LIST.map(c => `<option value="${c.campaign_code}">${c.campaign_name}</option>`).join('');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><select style="width:100%"><option value="">— เลือกแคมเปญ —</option>${campOpts}</select></td>
+    <td><input type="number" value="0" min="0" style="width:100%"></td>
+    <td><select style="width:100%">
+      <option value="">— ระบุ —</option>
+      <option value="REDUCE_DOWN">ลดดาวน์</option>
+      <option value="REDUCE_CRP">ลด CRP</option>
+      <option value="SWAP_INS">แลกประกัน</option>
+      <option value="REDUCE_ACC">ลดอุปกรณ์</option>
+      <option value="REDUCE_REG">ลดทะเบียน</option>
+      <option value="SWAP_PACK">แลกแพ็กเกจ</option>
+    </select></td>
+    <td><button class="btn btn-sm btn-ghost btn-icon" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addGiftRow(tbodyId) {
+  const tbody = document.getElementById(tbodyId);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" placeholder="ชื่อรายการ" style="width:100%"></td>
+    <td><input type="text" placeholder="รายละเอียด" style="width:100%"></td>
+    <td><input type="number" value="0" min="0" style="width:80px;text-align:right"></td>
+    <td><button class="btn btn-sm btn-ghost btn-icon" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addAddonRow() {
+  const tbody = document.getElementById('addon-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" placeholder="ชื่ออุปกรณ์" style="width:100%"></td>
+    <td><input type="number" value="0" min="0" style="width:90px;text-align:right"></td>
+    <td><button class="btn btn-sm btn-ghost btn-icon" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function resetForm() {
+  if (!confirm('ล้างข้อมูลทั้งหมดในฟอร์ม?')) return;
+  CURRENT_SO_ID = null;
+  CURRENT_STATUS = 'DRAFT';
+  document.querySelectorAll('input,select,textarea').forEach(el => {
+    if (el.type === 'date') el.value = '';
+    else if (el.type === 'number') el.value = '0';
+    else if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  document.getElementById('campaign-tbody').innerHTML = '';
+  document.getElementById('gift-tbody').innerHTML = '';
+  document.getElementById('addon-tbody').innerHTML = '';
+  addCampaignRow(); addGiftRow('gift-tbody'); addAddonRow();
+  updateStatusDisplay({ status: 'DRAFT', so_number: '' });
+  document.getElementById('btn-send-finance').style.display = 'none';
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('sale-date').value = today;
+  document.getElementById('invoice-date').value = today;
+  calcAll();
+}
+
+function showToast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+function formatDateTH(d) {
+  return d.toLocaleDateString('th-TH', {year:'numeric',month:'long',day:'numeric'});
+}
+
+// START
+window.onload = init;
+</script>
+</body>
+</html>
